@@ -1,0 +1,589 @@
+{% extends 'Analiz/base.html' %}
+    {% block content %}
+        {% load static %}
+        <img src="{% static "Analiz/printing.png" %}" id="printimg" onclick="grafprint()" onmouseover="document.body.style.cursor='hand';"/>
+        <canvas height={{ cancscale }} width={{ cancscale }} id='example'></canvas>
+        <div id="mainformwin">
+            <form method="post" id="mainform" onchange="this.submit();">
+                {% csrf_token %}
+                {{ form.minrange }}
+                <label for="mainTask">Task:</label>
+                {{ form.mainTask }}
+                <label>Round limit</label>
+                {{ form.roundLim }}
+                <label for="solvmethod">Method:</label>
+                {{ form.solvmethod }}
+                 <div id="resttypes">
+                    <label for="resttypes">Type:</label>
+                    {{ form.resttypes }}
+                </div>
+                <div id="acur">
+                    <label for="acuracy">Acuracy:</label>
+                    {{ form.acuracy }}
+                </div>
+                <div id="acurrange">
+                    <label for="acuracy">Acuracy:</label>
+                    <div>
+                        <input class="rnginp" id="2" type="button"  value="2" onclick="acursetslide(2)">
+                        <input class="rnginp" id="3" type="button"  value="3" onclick="acursetslide(3)">
+                        <input class="rnginp" id="4" type="button"  value="4" onclick="acursetslide(4)">
+                        <input class="rnginp" id="5" type="button"  value="5" onclick="acursetslide(5)">
+                        <input class="rnginp" id="6" type="button"  value="6" onclick="acursetslide(6)">
+                    </div>
+                </div>
+                <div id="experiments">
+                    <label for="experiments">Experiments:</label>
+                    {{ form.experiments }}
+                </div>
+                <label for="minr">Min range:</label>
+                <input id="minr" type="text" value="-10" onchange="minrangeseting()">
+                <label for="maxr">Max range:</label>
+                <input id="maxr" type="text" value="10" onchange="maxrangeseting()">
+                <label for="scalings">Scale:</label>
+                {{ form.scalings }}
+                <label>Rezult:</label>
+                <input id="finrez" type="number" readonly value="0">
+                {{ form.maxrange }}
+            </form>
+        </div>
+        <div id="infwin">
+            <div id="toolsPanel">
+                <img src="{% static "Analiz/centering.png" %}" class="mytools" id="center_but"/>
+                <img src="{% static "Analiz/vizualintegr.png" %}" class="mytools" id="vizual_integ"/>
+                <img src="{% static "Analiz/zoom.png" %}" class="mytools" id="zoomen"/>
+            </div>
+            <label class="doplabel">X:</label>
+            <input id="CurX" type="number" readonly value="0">
+            <label class="doplabel">Y:</label>
+            <input id="CurY" type="number" readonly value="0">
+        </div>
+		<script>
+            if ({{ fr }}==1){
+                document.getElementById("mainform").submit();
+            }
+            //--Переменные
+            //--Функционирующие переменные
+            var sc={{ cancscale }};//Размер области отображения
+            var xmove=0;//Смещение области отображения по x
+            var ymove=0;//Смещение области отображения по y
+            var showIntegrals=true;//Состояние включения визуализации интегральных значений
+            var scmooving=false;//Двигается ли область отображения
+            var zoomingen=true;//Включение автозума
+            var scope = {{ scalings }};//Интервал между отметками по оси абсцис
+            var xaltern = 50;//Минимальное расстояние между числовыми отметками по оси абсцис
+            var yaltern = 50;//Минимальное расстояние между числовыми отметками  по оси ординат
+			var example = document.getElementById("example"),
+			    ctx     = example.getContext('2d');
+			var minpozrect={x: 0, y: 0, w: 0, h: 0};
+            var maxpozrect={x: 0, y: 0, w: 0, h: 0};
+            //--Визуальные переменные
+            var roundMaxVal={{ roundLim }};
+            var elemActiveCol="#00ff6b";//Цвет активации элемента
+            var elemDeactiveCol="#ff0000";
+            var graficsCol="#8B121B";
+            var integralsCol="#EDCB8C";
+            var canvasLinesCol="#0D1114";
+            var canvasCol="#44B8AD";
+            var rangeCol="#23887c";
+            var dragableCol="#1c6e65";
+            //--Скрытие ненужных форм заполнения
+            function replacepival(mytask) {
+                if (mytask.indexOf("Pi")!=-1 || mytask.indexOf("pi")!=-1) {
+                    var analiztask=mytask.split("*");
+                    if (analiztask[1]=="Pi"||analiztask[1]=="pi") {
+                        analiztask[1] = analiztask[1].replace("Pi", Math.PI).replace("pi", Math.PI);
+                        mytask = parseFloat(analiztask[1]) * parseFloat(analiztask[0]);
+                    }
+                    else if (analiztask.length==1){
+                        analiztask[0] = analiztask[0].replace("Pi", Math.PI).replace("pi", Math.PI);
+                        mytask = parseFloat(analiztask[0]);
+                    }
+                    else {
+                        mytask="0";
+                    }
+                }
+                else {
+                    mytask=parseFloat(mytask);
+                }
+                return(mytask);
+            }
+            function acursetslide(val) {
+                document.getElementById("acuracy").value = val;
+                document.getElementById("mainform").submit();
+            }
+            function minrangeseting() {
+                document.getElementById("minrange").value = replacepival(document.getElementById("minr").value);
+                document.getElementById("mainform").submit();
+            }
+            function maxrangeseting() {
+                document.getElementById("maxrange").value = replacepival(document.getElementById("maxr").value);
+                document.getElementById("mainform").submit();
+            }
+            document.getElementById("minr").value = document.getElementById("minrange").value;
+            document.getElementById("maxr").value = document.getElementById("maxrange").value;
+            if ({{ methchanged }}=="3"){
+                document.getElementById("acur").style.visibility="hidden";
+                document.getElementById("acur").style.height="0px";
+                for (var i=2;i<7;i++){
+                    if ({{ acur }}==i){
+                        document.getElementById(i.toString()).style.backgroundColor=elemActiveCol;
+                    }
+                }
+                if ({{ acur }}>6){
+                    acursetslide(6);
+                }
+            }
+            else {
+                document.getElementById("acurrange").style.visibility="hidden";
+                document.getElementById("acurrange").style.height="0px";
+            }
+            if ({{ methchanged }}!="0"){
+                document.getElementById("resttypes").style.visibility="hidden";
+                document.getElementById("resttypes").style.height="0px";
+            }
+            if ({{ methchanged }}!="4"){
+                document.getElementById("experiments").style.visibility="hidden";
+                document.getElementById("experiments").style.height="0px";
+            }
+            //--Создание сессионных переменных
+            if (sessionStorage.length==0){
+                sessionStorage.setItem("MoveAll",1);
+            }
+            if (sessionStorage.getItem("XPos")!= null){
+                xmove=parseFloat(sessionStorage.getItem("XPos"));
+            }
+            else {
+                sessionStorage.setItem("XPos",0);
+            }
+            if (sessionStorage.getItem("YPos")!= null){
+                ymove=parseFloat(sessionStorage.getItem("YPos"));
+            }
+            else {
+                sessionStorage.setItem("YPos",0);
+            }
+            if (sessionStorage.getItem("ShowI")!= null){
+                if (sessionStorage.getItem("ShowI")=="true") {
+                    showIntegrals = true;
+                    document.getElementById("vizual_integ").style.backgroundColor=elemActiveCol;
+                }
+                else {
+                    showIntegrals = false;
+                    document.getElementById("vizual_integ").style.backgroundColor=elemDeactiveCol;
+                }
+            }
+            else {
+                if (showIntegrals==false){
+                    document.getElementById("vizual_integ").style.backgroundColor=elemDeactiveCol;
+                }
+                else {
+                    document.getElementById("vizual_integ").style.backgroundColor=elemActiveCol;
+                }
+            }
+            if (sessionStorage.getItem("ZoomEn")!= null){
+                if (sessionStorage.getItem("ZoomEn")=="true") {
+                    zoomingen = true;
+                    document.getElementById("zoomen").style.backgroundColor=elemActiveCol;
+                }
+                else {
+                    zoomingen = false;
+                    document.getElementById("zoomen").style.backgroundColor=elemDeactiveCol;
+                }
+            }
+            else {
+                if (zoomingen==false){
+                    document.getElementById("zoomen").style.backgroundColor=elemDeactiveCol;
+                }
+                else {
+                    document.getElementById("zoomen").style.backgroundColor=elemActiveCol;
+                }
+            }
+			//--Отрисовка
+			function DrawAll() {
+			    ctx.lineWidth="1";
+			    ctx.strokeStyle = canvasLinesCol;
+                DrawGrafWin();
+                ctx.lineWidth="3";
+                ctx.strokeStyle = graficsCol;
+                DrawGraff();
+                if (showIntegrals) {
+                    ctx.lineWidth = "1";
+                    ctx.strokeStyle = integralsCol;
+                    DrawIntegrals();
+                }
+                ActivateDraging([minpozrect,maxpozrect],example,document.getElementById("minrange"));
+                ActivateDraging([maxpozrect,minpozrect],example,document.getElementById("maxrange"));
+                if (xmove==0 && ymove==0){
+                    document.getElementById("center_but").style.backgroundColor=elemActiveCol;
+                }
+                else {
+                    document.getElementById("center_but").style.backgroundColor=elemDeactiveCol;
+                }
+            }
+            //--Отрисовка области для создания графиков
+            function DrawGrafWin() {
+                //--Рисуем диапазон
+                var minpoz=({{ xmas }}[0]*scope + sc / 2-xmove);
+                var maxpoz=({{ xmas }}[{{ xmas }}.length-1]*scope + sc / 2-xmove);
+                minpozrect={x: minpoz-5, y: 0, w: 5, h: sc};
+                maxpozrect={x: maxpoz, y: 0, w: 5, h: sc};
+                ctx.fillStyle = canvasCol;
+                ctx.fillRect(0, 0, sc, sc);
+                ctx.fillStyle = rangeCol;
+                ctx.fillRect(minpoz,0,maxpoz-minpoz,sc);
+                ctx.fillStyle = dragableCol;
+                ctx.fillRect(minpozrect.x,minpozrect.y,minpozrect.w,minpozrect.h);
+                ctx.fillRect(maxpozrect.x,maxpozrect.y,maxpozrect.w,maxpozrect.h);
+                ctx.fillStyle = canvasLinesCol;
+                ctx.font = "italic 10pt Arial";
+                ctx.beginPath();
+                ctx.moveTo(0, sc/2-ymove);
+                ctx.lineTo(sc,sc/2-ymove);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(sc/2-xmove, 0);
+                ctx.lineTo(sc/2-xmove,sc);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.textAlign = "center";
+                ctx.textBaseline = "top";
+                for (var i=0+xmove*(xmove<0);i<(sc+xmove)/scope+1;i++){
+                    var ybias = 3;
+                    if (i%(Math.round(xaltern/scope))==0){
+                        ctx.fillText(((Math.round(((i*scope-sc/2)/scope)*100))/100).toString(), i*scope-xmove, sc/2+10-ymove);
+                        ybias=6;
+                    }
+                    ctx.moveTo(i*scope-xmove, sc/2-ybias-ymove);
+                    ctx.lineTo(i*scope-xmove, sc/2+ybias-ymove);
+                }
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.textAlign = "left";
+                ctx.textBaseline = "middle";
+                for (var i=0+ymove*(ymove<0);i<(sc+ymove)/scope+1;i++){
+                    var xbias = 3;
+                    if (i%(Math.round(yaltern/scope))==0 && i*scope-sc/2!=0){
+                        ctx.fillText(((Math.round(((i*scope-sc/2)/scope)*(-100)))/100).toString(), sc/2+10-xmove, i*scope-ymove);
+                        xbias=6;
+                    }
+                    ctx.moveTo(sc/2-xbias-xmove, i*scope-ymove);
+                    ctx.lineTo(sc/2+xbias-xmove, i*scope-ymove);
+                }
+                ctx.stroke();
+            }
+            //--Отрисовка графиков
+            function DrawGraff() {
+                ctx.beginPath();
+                if ({{ er }}[0]==0) {
+                    ctx.moveTo(({{ xmas }}[0]*scope + sc / 2-xmove), (sc / 2 - {{ ymas }}[0]*scope-ymove));
+                }
+                for (var i=1;i<{{ymas}}.length;i++) {
+                    if ({{ er }}[i]==0) {
+                        ctx.lineTo(({{ xmas }}[i]*scope + sc / 2-xmove), (sc / 2 - {{ ymas }}[i]*scope-ymove));
+                    }
+                    else {
+                        ctx.moveTo(({{ xmas }}[i+1]*scope + sc / 2-xmove), (sc / 2 - {{ ymas }}[i+1]*scope-ymove));
+                    }
+                }
+                ctx.stroke();
+            }
+            //--Отрисовка интегралов
+            function drawParabol(x1,y1,x2,y2,x3,y3) {
+                var a=((y3-(x3*(y2-y1)+x2*y1-x1*y2)/(x2-x1))/(x3*(x3-x1-x2)+x1*x2));
+                var b=(y2-y1)/(x2-x1)-a*(x1+x2);
+                var c=(x2*y1-x1*y2)/(x2-x1)+a*x1*x2;
+                a=Math.round(a * Math.pow(10, 4)) / Math.pow(10, 4);
+                b=Math.round(b * Math.pow(10, 4)) / Math.pow(10, 4);
+                c=Math.round(c * Math.pow(10, 4)) / Math.pow(10, 4);
+                ctx.beginPath();
+                ctx.moveTo(x1*scope + sc / 2-xmove,sc / 2 - y1*scope-ymove);
+                for (var i=0;i<=100;i++) {
+                    curx=(x1+(x2-x1)/100*i);
+                    ctx.lineTo(curx*scope + sc / 2-xmove,sc / 2 - (a*Math.pow(curx,2)+b*curx+c)*scope-ymove);
+                }
+                ctx.stroke();
+            }
+            function VizualizateIntegrals() {
+			    showIntegrals=!showIntegrals;
+			    sessionStorage.setItem("ShowI",showIntegrals);
+                if (showIntegrals==false){
+                    document.getElementById("vizual_integ").style.backgroundColor=elemDeactiveCol;
+                }
+                else {
+                    document.getElementById("vizual_integ").style.backgroundColor=elemActiveCol;
+                }
+                DrawAll();
+            }
+            function DrawIntegrals(){
+			    ctx.beginPath();
+			    var integralWidth=({{ integxmas }}[{{ integxmas }}.length-1]*scope + sc / 2-xmove)-({{ integxmas }}[0]*scope + sc / 2-xmove);
+			    if ({{ acur }}>1){
+                    integralWidth = ({{ integxmas }}[1+({{ resttypes }}=="2" && {{ methchanged }}=="0")]*scope + sc / 2-xmove)-({{ integxmas }}[0]*scope + sc / 2-xmove);
+                }
+			    if ({{ methchanged }}=="0"){
+                    for (var i=0;i<{{ acur }}+1*({{ resttypes }}=="1");i++) {
+			            var integY=(sc / 2 - {{ integymas }}[(2-1*({{ resttypes }}!="2"))*i+({{ resttypes }}=="2")]*scope-ymove);
+			            var integX=({{ integxmas }}[(2-1*({{ resttypes }}!="2"))*i-1*({{ resttypes }}=="1")]*scope + sc / 2-xmove);
+                        ctx.rect(integX,integY,integralWidth,sc/2-ymove-integY);
+                    }
+                }
+                if ({{ methchanged }}=="1"){
+                    for (var i=0;i<={{ acur }};i++) {
+			            var integY=sc / 2 - {{ integymas }}[i]*scope-ymove;
+			            var integX={{ integxmas }}[i]*scope + sc / 2-xmove;
+			            var integY2=sc / 2 - {{ integymas }}[i+1]*scope-ymove;
+			            var integX2={{ integxmas }}[i+1]*scope + sc / 2-xmove;
+                        ctx.moveTo(integX,sc/2-ymove);
+                        ctx.lineTo(integX,integY);
+                        ctx.lineTo(integX2,integY2);
+                        ctx.lineTo(integX2,sc/2-ymove);
+                        ctx.lineTo(integX,sc/2-ymove);
+                    }
+                }
+                if ({{ methchanged }}=="2"){
+                    for (var i=0;i<={{ acur }};i+=2) {
+                        drawParabol({{ integxmas }}[i],{{ integymas }}[i],{{ integxmas }}[i+2],{{ integymas }}[i+2],{{ integxmas }}[i+1],0);
+                    }
+                }
+                if ({{ methchanged }}=="3"){
+                    for (var i=0;i<{{ acur }};i++) {
+                        var integY=sc / 2 - {{ integymas }}[i+1]*scope-ymove;
+			            var integX={{ integxmas }}[i+1]*scope + sc / 2-xmove;
+                        ctx.beginPath();
+                        ctx.arc(integX,integY,5,0,2*Math.PI);
+                        ctx.stroke();
+                    }
+                }
+                if ({{ methchanged }}=="4"){
+                    var pointscale=1;
+                    ctx.rect({{ integxmas }}[0]*scope + sc / 2-xmove,sc / 2 - {{ integymas }}[1]*scope-ymove,integralWidth,(sc / 2 - {{ integymas }}[0]*scope-ymove)-(sc / 2 - {{ integymas }}[1]*scope-ymove));
+                    ctx.stroke();
+                    for (var i=0;i<{{ randpoints }}.length;i++) {
+                        ctx.beginPath();
+                        ctx.arc({{ randpoints }}[i][0]*scope + sc / 2-xmove-pointscale/2,sc / 2 - {{ randpoints }}[i][1]*scope-ymove-pointscale/2,pointscale,0,2*Math.PI);
+                        ctx.stroke();
+                    }
+                }
+                if ({{ methchanged }}=="5"){
+                    for (var i=0;i<{{ acur }};i++) {
+			            var integY=sc / 2 - {{ integymas }}[i]*scope-ymove;
+			            var integX={{ integxmas }}[i]*scope + sc / 2-xmove;
+                        ctx.beginPath();
+                        ctx.moveTo(integX,sc / 2 -ymove);
+                        ctx.lineTo(integX,integY);
+                        ctx.stroke();
+                    }
+                }
+                ctx.stroke();
+            }
+			//--Проверка нахождения мыши внутри определенного Rect
+			function collides(rects,x, y) {
+                    var isCollision = false;
+                    for (var i = 0, len = rects.length; i < len; i++) {
+                        var left = rects[i].x, right = rects[i].x+rects[i].w;
+                        var top = rects[i].y, bottom = rects[i].y+rects[i].h;
+                        if (right >= x
+                            && left <= x
+                            && bottom >= y
+                            && top <= y) {
+                            isCollision = rects[i];
+                        }
+                    }
+                    return isCollision;
+                }
+            //Масштабируем область под заданный диапазон
+            function EnableZoom() {
+                zoomingen=!zoomingen;
+			    sessionStorage.setItem("ZoomEn",zoomingen);
+                if (zoomingen==false){
+                    document.getElementById("zoomen").style.backgroundColor=elemDeactiveCol;
+                }
+                else {
+                    document.getElementById("zoomen").style.backgroundColor=elemActiveCol;
+                    ScAutoZoom();
+                }
+            }
+            function ScAutoZoom() {
+                ResetScreenMooving();
+                if (sc / (document.getElementById("maxrange").value - document.getElementById("minrange").value) <= document.getElementById("scalings").max) {
+                    scope = sc / (document.getElementById("maxrange").value - document.getElementById("minrange").value);
+                }
+                else {
+                    scope = 100;
+                }
+                xmove = Math.round(0.5 * scope * (parseFloat(document.getElementById("maxrange").value) + parseFloat(document.getElementById("minrange").value)));
+                document.getElementById("scalings").value = Math.round(scope);
+                sessionStorage.setItem("XPos", xmove);
+                DrawAll();
+            }
+            //--Движиение области отрисовки
+            function ResetScreenMooving() {
+                xmove =0;
+                ymove =0;
+                sessionStorage.setItem("XPos",xmove);
+                sessionStorage.setItem("YPos",ymove);
+                DrawAll();
+            }
+            function ActivateScreenMooving(trig){
+                var stposx=0;
+                var stposy=0;
+                trig.addEventListener("mousedown", function(event) {
+                    if (sessionStorage.getItem("MoveAll")==1){
+                        stposx = event.offsetX+parseFloat(sessionStorage.getItem("XPos"));
+                        stposy = event.offsetY+parseFloat(sessionStorage.getItem("YPos"));
+                        scmooving=true;
+                    }
+                });
+                trig.addEventListener("mouseup", function(event) {
+                    if (scmooving) {
+                        scmooving=false;
+                    }
+                });
+                trig.addEventListener("mousemove", function(event) {
+                    if (scmooving) {
+                        xmove = stposx-event.offsetX;
+                        ymove = stposy - event.offsetY;
+                        sessionStorage.setItem("XPos",xmove);
+                        sessionStorage.setItem("YPos",ymove);
+                        DrawAll();
+                    }
+                });
+            }
+            //--Проверка нажатия на объекты
+            function ActivateClicks(trig,func){
+                var draging = false;
+                trig.addEventListener("click", function(event) {
+                    func();
+                });
+                trig.addEventListener("mouseover", function(event) {
+                    document.body.style.cursor="hand";
+                });
+                trig.addEventListener("mouseout", function() {
+                    document.body.style.cursor="";
+                });
+            }
+			//--Проверка ведения по объекту(drag)
+            function ActivateDraging(actrect,trig,obg){
+                var draging = false;
+                trig.addEventListener("mousedown", function(event) {
+                    if (collides([actrect[0]],event.offsetX, event.offsetY) && !scmooving) {
+                        draging = true;
+                    }
+                });
+                trig.addEventListener("mouseup", function(event) {
+                    if (draging && !scmooving) {
+                        document.getElementById("mainform").submit();
+                    }
+                });
+                trig.addEventListener("mousemove", function(event) {
+                    document.body.style.cursor="move";
+                    valX=(event.offsetX-sc/2+xmove)/scope;
+                    valY=(event.offsetY-sc/2+ymove)/scope;
+                    document.getElementById("CurX").value=Math.round((valX)*Math.pow(10,roundMaxVal))/Math.pow(10,roundMaxVal);
+                    document.getElementById("CurY").value=-(Math.round((valY)*Math.pow(10,roundMaxVal))/Math.pow(10,roundMaxVal));
+                    if (!scmooving){
+                        if (draging) {
+                            obg.value = Math.round((valX) * Math.pow(10, roundMaxVal)) / Math.pow(10, roundMaxVal);
+                            document.getElementById("minr").value = document.getElementById("minrange").value;
+                            document.getElementById("maxr").value = document.getElementById("maxrange").value;
+                        }
+                        if (collides(actrect, event.offsetX, event.offsetY)) {
+                            if (sessionStorage.getItem("MoveAll")!=0) {
+                                sessionStorage.setItem("MoveAll", 0);
+                            }
+                            document.body.style.cursor = "ew-resize";
+                        }
+                        else if (sessionStorage.getItem("MoveAll")!=1) {
+                            sessionStorage.setItem("MoveAll",1);
+                        }
+
+                    }
+                });
+                trig.addEventListener("mouseout", function() {
+                    document.body.style.cursor="";
+                    if (scmooving) {
+                        scmooving=false;
+                    }
+                });
+            }
+			//--Нажатие клавиш
+            function ActivateKeyEvents() {
+                addEventListener("keydown", handler);
+                function handler(e) {
+                    switch (e.keyCode) {
+                        case 13:
+                            document.getElementById("mainform").submit();
+                        break;
+                    }
+                }
+            }
+			//--Нахождение значения скрола
+            function SetScrolValue(trig,obg,minv,maxv) {
+                if (trig.addEventListener) {
+                  if ('onwheel' in document) {
+                    trig.addEventListener("wheel", onWheel);
+                  } else if ('onmousewheel' in document) {
+                    trig.addEventListener("mousewheel", onWheel);
+                  } else {
+                    trig.addEventListener("MozMousePixelScroll", onWheel);
+                  }
+                } else {
+                  trig.attachEvent("onmousewheel", onWheel);
+                }
+                function onWheel(e) {
+                  e = e || window.event;
+                  var delta = e.deltaY || e.detail || e.wheelDelta;
+                  if ((obg.value <= parseInt(maxv)+delta/100 || delta>0 || maxv=="")&&(obg.value >= parseInt(minv)+delta/100 || delta<0 || minv=="")) {
+                      scope=parseInt(scope)-parseInt(delta/100);
+                      obg.value=scope;
+                      DrawAll();
+                  }
+                  if (delta<0){
+                      document.body.style.cursor="zoom-in";
+                  }
+                  if (delta>0) {
+                      document.body.style.cursor="zoom-out";
+                  }
+                  e.preventDefault ? e.preventDefault() : (e.returnValue = false);
+                }
+            }
+            SetScrolValue(example,document.getElementById("scalings"),document.getElementById("scalings").min,document.getElementById("scalings").max);
+            ActivateClicks(document.getElementById("center_but"),ResetScreenMooving);
+            ActivateClicks(document.getElementById("vizual_integ"),VizualizateIntegrals);
+            ActivateClicks(document.getElementById("zoomen"),EnableZoom);
+            ActivateScreenMooving(example);
+            DrawAll();
+            document.getElementById("finrez").value=Math.round(({{ integralrez }})*Math.pow(10,roundMaxVal))/Math.pow(10,roundMaxVal)
+            if (document.getElementById("minr").value%Math.PI==0 && document.getElementById("minr").value!=0){
+                if (Math.abs(document.getElementById("minr").value)!=Math.PI){
+                    document.getElementById("minr").value=(document.getElementById("minr").value/Math.PI).toString()+"pi";
+                }
+                else {
+                    document.getElementById("minr").value=document.getElementById("minr").value.toString().replace(Math.abs(document.getElementById("minr").value).toString(),"")+"pi";
+                }
+            }
+            else {
+                document.getElementById("minr").value = Math.round((document.getElementById("minr").value) * Math.pow(10, roundMaxVal)) / Math.pow(10, roundMaxVal);
+            }
+            if (document.getElementById("maxr").value%Math.PI==0 && document.getElementById("maxr").value!=0){
+               if (Math.abs(document.getElementById("maxr").value)!=Math.PI){
+                    document.getElementById("maxr").value=(document.getElementById("maxr").value/Math.PI).toString()+"pi";
+                }
+                else {
+                    document.getElementById("maxr").value=document.getElementById("maxr").value.toString().replace(Math.abs(document.getElementById("maxr").value).toString(),"")+"pi";
+                }
+            }
+            else {
+                document.getElementById("maxr").value = Math.round((document.getElementById("maxr").value) * Math.pow(10, roundMaxVal)) / Math.pow(10, roundMaxVal);
+            }
+            ActivateKeyEvents();
+            if (zoomingen){
+                ScAutoZoom();
+            }
+            function grafprint() {
+                var win = window.open();
+                win.document.write("<br><img src='"+example.toDataURL()+"'/>");
+                win.print();
+                win.close();
+            }
+		</script>
+    {% endblock %}

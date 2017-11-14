@@ -1,0 +1,134 @@
+{% load static %}
+<html>
+    <head>
+        <title>Math Analizing</title>
+        <style>
+            body {
+                background:#0D1114;
+            }
+            #mainformwin{
+                float: right;
+                width: 400px;
+            }
+            #minrange,#maxrange{
+                visibility: hidden;
+                height: 0px;
+            }
+            #example{
+                box-shadow: 0px 0px 2px 2px #2AA597;
+                border: 2px solid #0D1114;
+                border-radius: 30px;
+            }
+            label,span{
+                color: #275d5d;
+                font-size: 25px;
+                font-family: Algerian;
+            }
+            form {
+                padding: 25px 25px 25px 25px;
+                border: 5px solid #44B8AD;
+                border-radius: 25px;
+                background:  #0D1114;
+                box-shadow: 0 0 13px 3px rgba(0,0,0,.5);
+            }
+            input,select {
+                background-color: #275d5d;
+                width: 100%;
+                height: 30px;
+                border: 1px solid rgba(255,255,255,.4);
+                border-radius: 4px;
+                display:block;
+                font-family: "Gill Sans Ultra Bold";
+                font-size:25px;
+                color: #0D1114;
+            }
+            option{
+                background-color: #0D1114;
+                color: #275d5d;
+            }
+            input{
+                padding-left:10px;
+                padding-right:10px;
+            }
+            input:focus, textarea:focus {
+                background-color: #3c8f8f;
+                box-shadow: 0 0 5px 1px rgba(255,255,255,.5);
+            }
+            input::-webkit-outer-spin-button,
+            input::-webkit-inner-spin-button {
+                /* display: none; <- Crashes Chrome on hover */
+                -webkit-appearance: none;
+                margin: 0; /* <-- Apparently some margin are still there even though it's hidden */
+            }
+            input[type=range] {
+              -webkit-appearance: none;
+              width: 100%;
+              margin: 3.1px 0;
+            }
+            input[type=range]::-webkit-slider-runnable-track {
+              width: 100%;
+              height: 100%;
+              cursor: pointer;
+            }
+            input[type=range]::-webkit-slider-thumb {
+              box-shadow: 0.px 0.px 6px rgba(246, 255, 255, 0.49), 0px 0px 0.px rgba(255, 255, 255, 0.49);
+              border: 2px solid #426c61;
+              height: 25px;
+              width: 34px;
+              border-radius: 28px;
+              background: #44B8AD;
+              cursor: pointer;
+              -webkit-appearance: none;
+            }
+            .rnginp{
+                display:inline-block;
+                cursor: pointer;
+                text-align: center;
+                width: 19%;
+            }
+            #infwin{
+                position: absolute;
+                width: 116px;
+                top: 10px;
+                left:730px;
+                padding: 15px 15px 15px 15px;
+                border: 5px solid #44B8AD;
+                border-radius: 25px;
+                background:  #0D1114;
+                box-shadow: 0 0 13px 3px rgba(0,0,0,.5);
+            }
+            #toolsPanel{
+                background-color: rgba(0, 0, 0, 0.2);
+                padding: 5px 5px 0px 5px;
+                border: 1px solid rgba(255,255,255,.4);
+                border-radius: 4px;
+                color: rgba(138, 223, 214, 0.5);
+            }
+            .mytools{
+                display:inline-block;
+                width: 30px;
+                height: 30px;
+                border: 1px solid rgba(255,255,255,.4);
+                border-radius: 4px;
+            }
+            #printimg{
+                position: absolute;
+                width: 64px;
+                height: 64px;
+                left: 20px;
+                top:20px;
+            }
+            #CurX,#CurY{
+                height: 22px;
+                font-size:20px;
+            }
+            .doplabel{
+                font-size: 20px;
+            }
+        </style>
+    </head>
+    <body>
+        {% block content %}
+        {% endblock %}
+    </body>
+</html>
